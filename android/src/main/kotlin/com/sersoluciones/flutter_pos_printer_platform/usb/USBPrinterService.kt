@@ -246,9 +246,12 @@ class USBPrinterService private constructor(private var mHandler: Handler?) {
                                 mHandler?.obtainMessage(STATE_USB_CONNECTED)?.sendToTarget()
 
                                 pendingPrintBytes?.let {
+                                    Log.v(LOG_TAG, "Printing queued data after USB connected")
                                     doPrintBytes(it)
                                     pendingPrintBytes = null
                                 }
+                            } else {
+                                Log.e(LOG_TAG, "USB openConnection failed")
                             }
                             return true
                         }
