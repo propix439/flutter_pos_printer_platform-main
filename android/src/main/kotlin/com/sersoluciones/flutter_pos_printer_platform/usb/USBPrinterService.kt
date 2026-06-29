@@ -40,14 +40,14 @@ class USBPrinterService private constructor(private var mHandler: Handler?) {
             if (ACTION_USB_PERMISSION == action) {
                 synchronized(this) {
                     val usbDevice: UsbDevice? =
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                            // Android 14+ does NOT send EXTRA_DEVICE reliably
-                            pendingUsbDevice
-                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
-                        } else {
-                            intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-                        }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                                // Android 14+ does NOT send EXTRA_DEVICE reliably
+                                pendingUsbDevice
+                            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                            } else {
+                                intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                            }
 
 
 
@@ -58,14 +58,14 @@ class USBPrinterService private constructor(private var mHandler: Handler?) {
 
 
                     val permissionGranted =
-                        intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                            intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
 
                     Log.v(
-                        LOG_TAG,
-                        "USB permission result: granted=$permissionGranted device=$usbDevice"
+                            LOG_TAG,
+                            "USB permission result: granted=$permissionGranted device=$usbDevice"
                     )
 
-                    if (permissionGranted && usbDevice != null) {
+                    if (permissionGranted) {
                         mUsbDevice = usbDevice
                         pendingUsbDevice = null
 
@@ -78,6 +78,10 @@ class USBPrinterService private constructor(private var mHandler: Handler?) {
                                 doPrintBytes(it)
                                 pendingPrintBytes = null
                             }
+                        } else {
+                            Log.e(LOG_TAG, "USB permission granted but connection failed")
+                            state = STATE_USB_NONE
+                            mHandler?.obtainMessage(STATE_USB_NONE)?.sendToTarget()
                         }
                     } else {
                         Log.e(LOG_TAG, "USB permission denied or not delivered")
@@ -154,21 +158,21 @@ class USBPrinterService private constructor(private var mHandler: Handler?) {
         }
 
         mPermissionIndent =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                PendingIntent.getBroadcast(
-                    mContext,
-                    0,
-                    permissionIntent,
-                    PendingIntent.FLAG_IMMUTABLE
-                )
-            } else {
-                PendingIntent.getBroadcast(
-                    mContext,
-                    0,
-                    permissionIntent,
-                    0
-                )
-            }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    PendingIntent.getBroadcast(
+                            mContext,
+                            0,
+                            permissionIntent,
+                            PendingIntent.FLAG_IMMUTABLE
+                    )
+                } else {
+                    PendingIntent.getBroadcast(
+                            mContext,
+                            0,
+                            permissionIntent,
+                            0
+                    )
+                }
 
         val filter = IntentFilter(ACTION_USB_PERMISSION).apply {
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
@@ -177,9 +181,9 @@ class USBPrinterService private constructor(private var mHandler: Handler?) {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             mContext!!.registerReceiver(
-                mUsbDeviceReceiver,
-                filter,
-                Context.RECEIVER_NOT_EXPORTED
+                    mUsbDeviceReceiver,
+                    filter,
+                    Context.RECEIVER_NOT_EXPORTED
             )
         } else {
             mContext!!.registerReceiver(mUsbDeviceReceiver, filter)
@@ -213,8 +217,8 @@ class USBPrinterService private constructor(private var mHandler: Handler?) {
 
     fun selectDevice(vendorId: Int, productId: Int): Boolean {
         if ((mUsbDevice == null) ||
-            (mUsbDevice!!.vendorId != vendorId) ||
-            (mUsbDevice!!.productId != productId)
+                (mUsbDevice!!.vendorId != vendorId) ||
+                (mUsbDevice!!.productId != productId)
         ) {
             synchronized(printLock) {
                 closeConnectionIfExists()
@@ -282,10 +286,10 @@ class USBPrinterService private constructor(private var mHandler: Handler?) {
             for (j in 0 until usbInterface.endpointCount) {
                 val ep = usbInterface.getEndpoint(j)
                 if (ep.type == UsbConstants.USB_ENDPOINT_XFER_BULK &&
-                    ep.direction == UsbConstants.USB_DIR_OUT) {
+                        ep.direction == UsbConstants.USB_DIR_OUT) {
 
                     val connection = mUSBManager!!.openDevice(mUsbDevice)
-                        ?: return false
+                            ?: return false
 
                     if (connection.claimInterface(usbInterface, true)) {
                         mUsbInterface = usbInterface
@@ -375,18 +379,18 @@ class USBPrinterService private constructor(private var mHandler: Handler?) {
                         val end = minOf(start + chunkSize, byteData.size)
                         val buffer = Arrays.copyOfRange(byteData, start, end)
                         mUsbDeviceConnection!!.bulkTransfer(
-                            mEndPoint,
-                            buffer,
-                            buffer.size,
-                            100000
+                                mEndPoint,
+                                buffer,
+                                buffer.size,
+                                100000
                         )
                     }
                 } else {
                     mUsbDeviceConnection!!.bulkTransfer(
-                        mEndPoint,
-                        byteData,
-                        byteData.size,
-                        100000
+                            mEndPoint,
+                            byteData,
+                            byteData.size,
+                            100000
                     )
                 }
             }
